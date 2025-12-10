@@ -182,21 +182,29 @@ static void processCommand(const char* cmd) {
   else if (strcmp(upperCmd, "TEMP") == 0) {
     #if SIMULATE_TEMPERATURE
       float waterTemp = SIMULATED_WATER_TEMP_C;
-      float skinTemp = SIMULATED_SKIN_TEMP_C;
+      #if USE_SKIN_SENSOR
+        float skinTemp = SIMULATED_SKIN_TEMP_C;
+      #endif
     #else
       float waterTemp = readWaterTemperature();
-      float skinTemp = readSkinTemperature();
+      #if USE_SKIN_SENSOR
+        float skinTemp = readSkinTemperature();
+      #endif
     #endif
 
-    // Send both temperatures
+    // Send temperature(s)
     // Note: Arduino's snprintf doesn't support %f, so we use dtostrf
     char waterTempStr[10];
-    char skinTempStr[10];
     dtostrf(waterTemp, 4, 1, waterTempStr);
-    dtostrf(skinTemp, 4, 1, skinTempStr);
 
     char tempMsg[64];
-    snprintf(tempMsg, sizeof(tempMsg), "TEMP:{Water:%sC,Skin:%sC}", waterTempStr, skinTempStr);
+    #if USE_SKIN_SENSOR
+      char skinTempStr[10];
+      dtostrf(skinTemp, 4, 1, skinTempStr);
+      snprintf(tempMsg, sizeof(tempMsg), "TEMP:{Water:%sC,Skin:%sC}", waterTempStr, skinTempStr);
+    #else
+      snprintf(tempMsg, sizeof(tempMsg), "TEMP:{Water:%sC,Skin:0.0C}", waterTempStr);
+    #endif
     BT_SERIAL.println(tempMsg);
 
     #if DEBUG_MODE
@@ -246,34 +254,49 @@ void bluetoothSendStatus() {
   char pumpStatus[100];
   pumpGetStatusString(pumpStatus, sizeof(pumpStatus));
 
-  // Get both temperatures
+  // Get temperature(s)
   #if SIMULATE_TEMPERATURE
     float waterTemp = SIMULATED_WATER_TEMP_C;
-    float skinTemp = SIMULATED_SKIN_TEMP_C;
+    #if USE_SKIN_SENSOR
+      float skinTemp = SIMULATED_SKIN_TEMP_C;
+    #endif
   #else
     float waterTemp = readWaterTemperature();
-    float skinTemp = readSkinTemperature();
+    #if USE_SKIN_SENSOR
+      float skinTemp = readSkinTemperature();
+    #endif
 
     #if DEBUG_MODE
       Serial.print(F("[BT] Water temp: "));
       Serial.print(waterTemp);
-      Serial.print(F("C, Skin temp: "));
-      Serial.print(skinTemp);
-      Serial.println(F("C"));
+      Serial.print(F("C"));
+      #if USE_SKIN_SENSOR
+        Serial.print(F(", Skin temp: "));
+        Serial.print(skinTemp);
+        Serial.print(F("C"));
+      #endif
+      Serial.println();
     #endif
   #endif
 
-  // Format complete status message with both temperatures
+  // Format status message
   // Note: Arduino's snprintf doesn't support %f, so we use dtostrf to convert floats
   char waterTempStr[10];
-  char skinTempStr[10];
   dtostrf(waterTemp, 4, 1, waterTempStr);  // Convert float to string with 1 decimal place
-  dtostrf(skinTemp, 4, 1, skinTempStr);
 
   char statusMsg[180];
-  snprintf(statusMsg, sizeof(statusMsg),
-           "STATUS:{%s,WaterTemp:%sC,SkinTemp:%sC}",
-           pumpStatus, waterTempStr, skinTempStr);
+  #if USE_SKIN_SENSOR
+    char skinTempStr[10];
+    dtostrf(skinTemp, 4, 1, skinTempStr);
+    snprintf(statusMsg, sizeof(statusMsg),
+             "STATUS:{%s,WaterTemp:%sC,SkinTemp:%sC}",
+             pumpStatus, waterTempStr, skinTempStr);
+  #else
+    // Only water temp available
+    snprintf(statusMsg, sizeof(statusMsg),
+             "STATUS:{%s,WaterTemp:%sC,SkinTemp:0.0C}",
+             pumpStatus, waterTempStr);
+  #endif
 
   BT_SERIAL.println(statusMsg);
 

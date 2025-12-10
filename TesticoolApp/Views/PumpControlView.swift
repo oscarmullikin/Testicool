@@ -71,11 +71,7 @@ struct PumpControlView: View {
                 StatusView()
                     .padding(.horizontal, 20)
 
-                // Water Temperature Display
-                WaterTemperatureCard()
-                    .padding(.horizontal, 20)
-
-                // Skin Temperature Display
+                // Skin Temperature Display (connected to A0)
                 SkinTemperatureCard()
                     .padding(.horizontal, 20)
 
@@ -194,33 +190,36 @@ struct SpeedControlCard: View {
 
                 Text("\(Int((tempSpeed / 255.0) * 100.0))%")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(bluetoothManager.deviceState.isPumpOn ? .blue : .gray)
             }
 
             // Speed slider
             VStack(spacing: 10) {
                 Slider(
                     value: $tempSpeed,
-                    in: 0...255,
+                    in: 51...255,
                     step: 1,
                     onEditingChanged: { editing in
                         isEditing = editing
-                        if !editing {
+                        print("[SpeedSlider] Editing: \(editing), Speed: \(Int(tempSpeed))")
+
+                        if !editing && bluetoothManager.deviceState.isPumpOn {
+                            print("[SpeedSlider] Sending speed command: \(Int(tempSpeed))")
                             bluetoothManager.setPumpSpeed(Int(tempSpeed))
                         }
                     }
                 )
                 .accentColor(.blue)
-                .disabled(!bluetoothManager.deviceState.isPumpOn)
+                .opacity(bluetoothManager.deviceState.isPumpOn ? 1.0 : 0.5)
 
                 HStack {
-                    Text("0%")
+                    Text("20%")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
 
                     Spacer()
 
-                    Text("50%")
+                    Text("60%")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
 
@@ -236,6 +235,10 @@ struct SpeedControlCard: View {
                 Text("Turn pump on to adjust speed")
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
+            } else {
+                Text("Drag slider to adjust pump speed")
+                    .font(.system(size: 13))
+                    .foregroundColor(.blue)
             }
         }
         .padding(20)
@@ -245,11 +248,14 @@ struct SpeedControlCard: View {
                 .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 5)
         )
         .onAppear {
-            tempSpeed = Double(bluetoothManager.deviceState.pumpSpeed)
+            let currentSpeed = bluetoothManager.deviceState.pumpSpeed
+            tempSpeed = Double(max(51, currentSpeed)) // Ensure minimum speed
+            print("[SpeedSlider] onAppear - Initial speed: \(Int(tempSpeed))")
         }
         .onChange(of: bluetoothManager.deviceState.pumpSpeed) { newSpeed in
             if !isEditing {
-                tempSpeed = Double(newSpeed)
+                tempSpeed = Double(max(51, newSpeed))
+                print("[SpeedSlider] Speed updated from device: \(newSpeed)")
             }
         }
     }

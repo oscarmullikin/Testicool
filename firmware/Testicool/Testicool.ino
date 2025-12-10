@@ -147,10 +147,23 @@ void loop() {
     lastTempRead = currentMillis;
 
     float waterTemp = readWaterTemperature();
+
+    #if USE_SKIN_SENSOR
     float skinTemp = readSkinTemperature();
 
-    // Check for temperature-based safety conditions
-    if (skinTemp > OVERHEAT_TEMP_C && pumpGetState() == PUMP_ON) {
+    // Check for bad sensor readings (disconnected/shorted thermistor)
+    bool validReading = true;
+    if (skinTemp < -20.0 || skinTemp > 100.0) {
+      #if DEBUG_MODE
+        Serial.print(F("[WARNING] Bad skin temp sensor reading: "));
+        Serial.print(skinTemp);
+        Serial.println(F("C - sensor may be disconnected"));
+      #endif
+      validReading = false;
+    }
+
+    // Only check for overheat if we have valid readings
+    if (validReading && skinTemp > OVERHEAT_TEMP_C && pumpGetState() == PUMP_ON) {
       pumpEmergencyStop();
       bluetoothSendError("OVERHEAT");
       char msg[64];
@@ -163,6 +176,7 @@ void loop() {
         Serial.println(F("C"));
       #endif
     }
+    #endif
 
     // Optional: Check if water is too warm (not cooling effectively)
     if (waterTemp > 30.0 && pumpGetState() == PUMP_ON) {
@@ -176,15 +190,13 @@ void loop() {
   #endif
 
   // ========== 6. MANUAL SPEED CONTROL (POTENTIOMETER) ==========
-  // Read potentiometer and adjust pump speed
-  if (currentMillis - lastSpeedRead >= SPEED_READ_INTERVAL_MS) {
-    lastSpeedRead = currentMillis;
-
-    // Only read pot if pump is running
-    if (pumpGetState() == PUMP_ON) {
-      checkManualSpeedControl();
-    }
-  }
+  // DISABLED - Use Bluetooth app for speed control
+  // if (currentMillis - lastSpeedRead >= SPEED_READ_INTERVAL_MS) {
+  //   lastSpeedRead = currentMillis;
+  //   if (pumpGetState() == PUMP_ON) {
+  //     checkManualSpeedControl();
+  //   }
+  // }
 
   // ========== 7. LED STATUS INDICATION ==========
   updateStatusLEDs();
@@ -212,7 +224,15 @@ void checkManualButtons() {
       // Toggle pump state
       PumpState currentState = pumpGetState();
 
-      if (currentState == PUMP_ON) {
+      if (currentState == PUMP_ERROR) {
+        // Clear error state and turn pump OFF
+        pumpResetError();
+        bluetoothSendMessage("ERROR_CLEARED");
+
+        #if DEBUG_MODE
+          Serial.println(F("[BUTTON] Error cleared - press again to turn on"));
+        #endif
+      } else if (currentState == PUMP_ON) {
         // Pump is ON, turn it OFF
         pumpOff();
         bluetoothSendMessage("MANUAL:OFF");
@@ -241,8 +261,13 @@ void checkManualButtons() {
 // ============================================================================
 
 void checkManualSpeedControl() {
-  // Read potentiometer value (0-1023)
-  int potValue = analogRead(SPEED_POT_PIN);
+  // Read potentiometer multiple times and average to reduce noise
+  int sum = 0;
+  for (int i = 0; i < 5; i++) {
+    sum += analogRead(SPEED_POT_PIN);
+    delay(2);
+  }
+  int potValue = sum / 5;
 
   // Map to pump speed range (0-255)
   // Add small deadzone at bottom to ensure pump can be set to "off" speed
@@ -253,8 +278,8 @@ void checkManualSpeedControl() {
     newSpeed = map(potValue, 20, 1023, 10, 255);  // Map 20-1023 to 10-255
   }
 
-  // Only update if speed changed significantly (> 5 units to reduce jitter)
-  if (abs((int)newSpeed - (int)lastPotSpeed) > 5) {
+  // Only update if speed changed significantly (> 30 units to reduce jitter)
+  if (abs((int)newSpeed - (int)lastPotSpeed) > 30) {
     lastPotSpeed = newSpeed;
 
     // Set the new pump speed
@@ -334,6 +359,13 @@ float readThermistorTemperature(int pin) {
   // Read analog value from thermistor
   int rawValue = analogRead(pin);
 
+  #if DEBUG_MODE
+    Serial.print(F("[THERM] Pin A"));
+    Serial.print(pin - A0);
+    Serial.print(F(" ADC: "));
+    Serial.print(rawValue);
+  #endif
+
   // Avoid edge cases
   if (rawValue <= 1) rawValue = 1;
   if (rawValue >= 1022) rawValue = 1022;
@@ -345,6 +377,12 @@ float readThermistorTemperature(int pin) {
   float adcFloat = (float)rawValue;
   float resistance = SERIES_RESISTOR * ((1023.0 / adcFloat) - 1.0);
 
+  #if DEBUG_MODE
+    Serial.print(F(" R: "));
+    Serial.print(resistance);
+    Serial.print(F("Ω"));
+  #endif
+
   // Steinhart-Hart equation (simplified B-parameter equation)
   // 1/T = 1/T0 + (1/B) * ln(R/R0)
   float steinhart;
@@ -354,6 +392,12 @@ float readThermistorTemperature(int pin) {
   steinhart += 1.0 / (TEMPERATURE_NOMINAL + 273.15);        // + (1/To) in Kelvin
   steinhart = 1.0 / steinhart;                              // Invert to get Kelvin
   steinhart -= 273.15;                                      // Convert to Celsius
+
+  #if DEBUG_MODE
+    Serial.print(F(" Temp: "));
+    Serial.print(steinhart);
+    Serial.println(F("°C"));
+  #endif
 
   return steinhart;
 }
@@ -366,6 +410,15 @@ float readWaterTemperature() {
 float readSkinTemperature() {
   float temp = readThermistorTemperature(TEMP_SENSOR_SKIN_PIN);
   return temp + SKIN_TEMP_OFFSET;   // Apply calibration offset
+}
+#else
+// Simulated temperature functions for testing without sensors
+float readWaterTemperature() {
+  return SIMULATED_WATER_TEMP_C;
+}
+
+float readSkinTemperature() {
+  return SIMULATED_SKIN_TEMP_C;
 }
 #endif
 
@@ -403,3 +456,4 @@ void buttonOffISR() {
 // attachInterrupt(digitalPinToInterrupt(BUTTON_ON_PIN), buttonOnISR, FALLING);
 // attachInterrupt(digitalPinToInterrupt(BUTTON_OFF_PIN), buttonOffISR, FALLING);
 */
+

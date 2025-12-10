@@ -18,13 +18,21 @@ struct ContentView: View {
                 if demoMode || bluetoothManager.connectionStatus == .connected {
                     // Show main control interface when connected OR in demo mode
                     PumpControlView()
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .principal) {
+                                Image("TesticoolLogo")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(height: 32)
+                            }
+                        }
                 } else {
                     // Show connection screen when disconnected
                     ConnectionView()
+                        .navigationBarHidden(true)
                 }
             }
-            .navigationTitle("Testicool")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
@@ -50,21 +58,13 @@ struct ConnectionView: View {
         VStack(spacing: 30) {
             Spacer()
 
-            // App logo/icon area
-            VStack(spacing: 15) {
-                Image(systemName: "snowflake")
-                    .font(.system(size: 80))
-                    .foregroundColor(.blue)
-
-                Text("Testicool")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
-
-                Text("Prototype Control")
-                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                    .foregroundColor(.secondary)
-            }
-            .padding(.top, 40)
+            // App logo
+            Image("TesticoolLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 300)
+                .padding(.horizontal, 20)
+                .padding(.top, 95)
 
             Spacer()
 

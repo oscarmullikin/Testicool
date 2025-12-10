@@ -18,20 +18,21 @@
 
 // Pump Control Pins
 #define PUMP_PWM_PIN        9      // PWM output to control pump speed (must be PWM-capable pin)
-#define PUMP_ENABLE_PIN     8      // Digital pin to enable/disable pump
+// #define PUMP_ENABLE_PIN     8   // DISABLED - using PWM pin only for single MOSFET control
 #define PUMP_DIRECTION_PIN  7      // Optional: for bidirectional pumps (not used in single-direction setup)
 
 // Manual Control Button (single momentary tactile switch on bottle lid)
 #define BUTTON_TOGGLE_PIN   2      // Toggle button - press to turn ON/OFF (interrupt-capable pin)
-#define BUTTON_DEBOUNCE_MS  50     // Button debounce delay in milliseconds
+#define BUTTON_DEBOUNCE_MS  300    // Button debounce delay in milliseconds (increased to prevent bouncing)
 
 // Manual Speed Control (rotary potentiometer on bottle lid)
 #define SPEED_POT_PIN       A2     // Potentiometer for manual speed control (0-5V = 0-255 PWM)
-#define SPEED_READ_INTERVAL_MS  100  // Read potentiometer every 100ms
+#define SPEED_READ_INTERVAL_MS  500  // Read potentiometer every 500ms
 
-// Temperature Sensors (dual thermistor setup)
-#define TEMP_SENSOR_WATER_PIN  A0  // Water temperature sensor (thermistor in reservoir)
-#define TEMP_SENSOR_SKIN_PIN   A1  // Skin temperature sensor (thermistor on user)
+// Temperature Sensors (single thermistor setup)
+#define TEMP_SENSOR_WATER_PIN  A1  // Water temperature sensor (thermistor in reservoir) - NOT USED
+#define TEMP_SENSOR_SKIN_PIN   A0  // Skin temperature sensor (thermistor on user) - CONNECTED
+#define USE_SKIN_SENSOR        true  // Skin sensor is connected to A0
 
 // LED Status Indicators (optional)
 #define LED_POWER_PIN       12     // Power/status LED
@@ -41,9 +42,9 @@
 // PUMP CONFIGURATION
 // ============================================================================
 
-#define PUMP_MIN_SPEED      0      // Minimum PWM value (0-255, pump off)
+#define PUMP_MIN_SPEED      51     // Minimum PWM value (~20% duty cycle - pump minimum operating speed)
 #define PUMP_MAX_SPEED      255    // Maximum PWM value (0-255, full speed)
-#define PUMP_DEFAULT_SPEED  180    // Default operating speed (70% power for quieter operation)
+#define PUMP_DEFAULT_SPEED  180    // Default operating speed (~70% power - good balance of flow and noise)
 
 // Flow rate assumptions:
 // Typical mini DC pumps: 1-3 L/min at 12V
@@ -54,7 +55,7 @@
 // ============================================================================
 
 #define MAX_RUN_TIME_MS     1800000L  // 30 minutes max continuous operation (30 * 60 * 1000)
-#define OVERHEAT_TEMP_C     40.0      // Simulated overtemperature cutoff (°C)
+#define OVERHEAT_TEMP_C     60.0      // Overtemperature cutoff (°C) - raised to prevent false triggers
 #define UNDERCOOL_TEMP_C    30.0      // Simulated under-temperature cutoff (°C)
 #define TARGET_TEMP_MIN_C   34.0      // Target scrotal temperature minimum (°C)
 #define TARGET_TEMP_MAX_C   35.0      // Target scrotal temperature maximum (°C)

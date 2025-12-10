@@ -24,13 +24,11 @@ static unsigned long lastSafetyCheck = 0;
 // ============================================================================
 
 void pumpInit() {
-  // Configure pump control pins
+  // Configure pump control pin (digital ON/OFF only)
   pinMode(PUMP_PWM_PIN, OUTPUT);
-  pinMode(PUMP_ENABLE_PIN, OUTPUT);
 
   // Initialize pump to OFF state
-  digitalWrite(PUMP_ENABLE_PIN, LOW);
-  analogWrite(PUMP_PWM_PIN, 0);
+  digitalWrite(PUMP_PWM_PIN, LOW);
 
   currentState = PUMP_OFF;
   currentSpeed = 0;
@@ -62,8 +60,7 @@ bool pumpOn(uint8_t speed) {
     return false;
   }
 
-  // Enable pump
-  digitalWrite(PUMP_ENABLE_PIN, HIGH);
+  // Enable pump via PWM - gate resistor does NOT prevent PWM operation
   analogWrite(PUMP_PWM_PIN, speed);
 
   // Update state
@@ -83,8 +80,7 @@ bool pumpOn(uint8_t speed) {
 }
 
 void pumpOff() {
-  // Disable pump
-  digitalWrite(PUMP_ENABLE_PIN, LOW);
+  // Disable pump via PWM at 0% duty cycle
   analogWrite(PUMP_PWM_PIN, 0);
 
   // Update state
@@ -109,7 +105,7 @@ bool pumpSetSpeed(uint8_t speed) {
   // Constrain speed to valid range
   speed = constrain(speed, PUMP_MIN_SPEED, PUMP_MAX_SPEED);
 
-  // Update PWM
+  // Set PWM duty cycle - gate resistor fully supports PWM operation
   analogWrite(PUMP_PWM_PIN, speed);
   currentSpeed = speed;
 
@@ -210,7 +206,6 @@ void pumpEmergencyStop() {
   #endif
 
   // Immediate hardware shutoff
-  digitalWrite(PUMP_ENABLE_PIN, LOW);
   analogWrite(PUMP_PWM_PIN, 0);
 
   // Set error state
